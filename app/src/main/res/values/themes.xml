@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light: the web app paints everything; the theme only sets the first frame and the bars. -->
+    <style name="Theme.ParStack" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bg_light</item>
+        <item name="android:statusBarColor">@color/bg_light</item>
+        <item name="android:navigationBarColor">@color/bg_light</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorAccent">@color/accent</item>
+    </style>
+</resources>

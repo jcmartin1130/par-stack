@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Par Stack launcher foreground: a red chip with cream edge spots and a three-chip stack in the centre.
+     108dp canvas; the art stays inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FFA4172B" android:pathData="M25.40,54.00a28.60,28.60 0 1,0 57.20,0a28.60,28.60 0 1,0 -57.20,0z" />
+    <path android:fillColor="#FFF3EFE4" android:pathData="M50.26,30.57a3.74,3.74 0 1,0 7.48,0a3.74,3.74 0 1,0 -7.48,0zM70.55,42.28a3.74,3.74 0 1,0 7.48,0a3.74,3.74 0 1,0 -7.48,0zM70.55,65.72a3.74,3.74 0 1,0 7.48,0a3.74,3.74 0 1,0 -7.48,0zM50.26,77.43a3.74,3.74 0 1,0 7.48,0a3.74,3.74 0 1,0 -7.48,0zM29.97,65.72a3.74,3.74 0 1,0 7.48,0a3.74,3.74 0 1,0 -7.48,0zM29.97,42.28a3.74,3.74 0 1,0 7.48,0a3.74,3.74 0 1,0 -7.48,0z" />
+    <path android:fillColor="#FFF3EFE4" android:pathData="M36.95,54.00a17.05,17.05 0 1,0 34.10,0a17.05,17.05 0 1,0 -34.10,0z" />
+    <path android:fillColor="#FF1D4236" android:pathData="M45.86,58.40h16.28a1.76,1.76 0 0,1 1.76,1.76v1.10a1.76,1.76 0 0,1 -1.76,1.76h-16.28a1.76,1.76 0 0,1 -1.76,-1.76v-1.10a1.76,1.76 0 0,1 1.76,-1.76zM48.06,52.68h11.88a1.76,1.76 0 0,1 1.76,1.76v1.10a1.76,1.76 0 0,1 -1.76,1.76h-11.88a1.76,1.76 0 0,1 -1.76,-1.76v-1.10a1.76,1.76 0 0,1 1.76,-1.76zM50.26,46.96h7.48a1.76,1.76 0 0,1 1.76,1.76v1.10a1.76,1.76 0 0,1 -1.76,1.76h-7.48a1.76,1.76 0 0,1 -1.76,-1.76v-1.10a1.76,1.76 0 0,1 1.76,-1.76z" />
+</vector>
