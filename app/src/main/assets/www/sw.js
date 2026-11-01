@@ -1,6 +1,6 @@
 /* Par Stack offline cache. Online: always fetch the latest files, then keep a copy.
    Offline: serve the saved copy. Bump VERSION with each release. */
-const VERSION = "parstack-2026-11-01a";
+const VERSION = "parstack-2026-11-01b";
 const SHELL = [
   "./", "index.html", "manifest.webmanifest",
   "css/fonts.css", "css/app.css",

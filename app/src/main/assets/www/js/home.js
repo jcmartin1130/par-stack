@@ -166,7 +166,7 @@ function render(){
     <div><span class="k">Quiz, all time</span><span class="v">${q.n ? Math.round(q.c / q.n * 100) + "%" : "—"}</span><span class="d">${q.n} answers</span></div>
     <div><span class="k">Last 7 days</span><span class="v">${last7[0] ? Math.round(last7[1] / last7[0] * 100) + "%" : "—"}</span><span class="d">${last7[0]} answers</span></div>
     <div><span class="k">8-day program</span><span class="v">${pd}/24</span><span class="d">${s.program.start ? "started " + U.fmtDate(s.program.start, "short") : "not started"}</span></div></div></section>`;
-  h += `<p class="foot">Par Stack keeps everything on this device; nothing is uploaded. Export a backup now and then from Settings.</p>`;
+  h += `<p class="foot">Your results, hands and quiz history stay on this device. Export a backup now and then from Settings.</p>`;
   root.innerHTML = h;
   root.querySelector("#hmSet").addEventListener("click", settingsSheet);
   const ib = root.querySelector("#instGo"), ix = root.querySelector("#instNo");
@@ -305,9 +305,12 @@ function settingsSheet(){
       <p class="h3">Backup</p>
       <p class="note" style="margin-top:0">${N ? "Your data is saved on this phone and copied into Android's app backup. Export a file before you uninstall or switch phones." : "In a browser your data lives only in this browser. Copy a backup now and then."}</p>
       <div class="btnrow"><button type="button" class="btn dark" id="seExp">Export backup</button><button type="button" class="btn" id="seCsv">Export results (CSV)</button><button type="button" class="btn" id="seImp">Import backup</button></div>
+      ${N ? "" : `<p class="h3">Privacy</p>
+      <p class="note" style="margin-top:0">Your results, hands and quiz history never leave this phone. When the app opens it sends an anonymous count (browser, screen size, rough location) so we know how many people use Par Stack. No cookies, no names, no poker data.</p>
+      <label class="check"><input type="checkbox" id="seCount" ${s.countVisits === false ? "" : "checked"}> Count my visits anonymously</label>`}
       <p class="h3">Start over</p>
       <div class="btnrow"><button type="button" class="btn danger" id="seReset">Erase everything</button></div>
-      <p class="foot">Par Stack${ver ? " " + U.esc(ver) : ""}. Ranges built for live tournaments with a big blind ante; equities from Monte Carlo simulation; ICM by the Malmuth-Harville model. Fonts: Barlow Condensed and IBM Plex (SIL Open Font License).</p></div>`;
+      <p class="foot">Par Stack${ver ? " " + U.esc(ver) : ""}. Ranges built for live tournaments with a big blind ante; equities from Monte Carlo simulation; ICM by the Malmuth-Harville model. Fonts: Barlow Condensed and IBM Plex (SIL Open Font License). © 2026 AMB Enterprises Inc. All rights reserved.</p></div>`;
     const $ = id => body.querySelector("#" + id);
     const saveS = () => { s.budget = parseFloat($("seBud").value) || 0; s.trackFrom = $("seFrom").value || ""; s.budgetMode = $("seMode").value; PS.store.save(); };
     ["seBud","seFrom","seMode"].forEach(i => $(i).addEventListener("change", saveS));
@@ -317,6 +320,7 @@ function settingsSheet(){
     $("seExp").addEventListener("click", () => exportFile(`parstack-backup-${U.today()}.json`, "application/json", PS.store.exportJSON()));
     $("seCsv").addEventListener("click", () => exportFile(`parstack-results-${U.today()}.csv`, "text/csv", resultsCSV()));
     $("seImp").addEventListener("click", importSheet);
+    if ($("seCount")) $("seCount").addEventListener("change", e => { s.countVisits = e.target.checked; PS.store.save(); });
     U.twoTap($("seReset"), "Tap again to erase every result, hand and stat", () => { PS.store.reset(); close(); PS.app.applyTheme(); PS.app.rerenderAll(); U.toast("Everything erased"); });
   }, {onClose:render, focus:false});
 }

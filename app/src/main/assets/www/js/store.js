@@ -13,7 +13,7 @@ function blankQuiz(){ return {n:0, c:0, streak:0, best:0, cats:{}, recent:{}, mi
 function defaults(){
   return {
     v:1, savedAt:0, created:new Date().toISOString(),
-    settings:{budget:0, budgetMode:"spend", trackFrom:"", theme:"system", includeCosts:true, lastView:"home", setupDone:false, installDismissed:false},
+    settings:{budget:0, budgetMode:"spend", trackFrom:"", theme:"system", includeCosts:true, lastView:"home", setupDone:false, installDismissed:false, countVisits:true},
     series:clone(PS.data.SERIES),
     plans:clone(PS.data.PLANS),
     sessions:[], expenses:[], hands:[],

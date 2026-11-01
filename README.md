@@ -1,7 +1,9 @@
 # Par Stack
 
 A preflop trainer, an eight-day tournament course and a results ledger for live poker
-players. It works offline and keeps all data on the device. Nothing is uploaded.
+players. It works offline, and your results, hands and quiz history stay on the device.
+The web app sends an anonymous visit count (GoatCounter: no cookies, no poker data),
+which can be turned off in **Settings › Privacy**.
 
 - **Web app:** https://jcmartin1130.github.io/par-stack/ (install it to the home screen)
 - **Android app:** this Android Studio project, which wraps the same web app
@@ -41,6 +43,7 @@ to the phone and open it.
 - `app/src/main/assets/www`: the web app (plain HTML, CSS and JavaScript, no build step).
   - `js/data.js` holds the ranges, course text and default series.
   - `sw.js` is the offline cache. Bump its `VERSION` with each release.
+  - `js/app.js` holds the visit counter address (`COUNTER`, a GoatCounter site).
 - `app/src/main/java/ca/parstack/app/MainActivity.java`: the Android shell.
 - `.github/workflows/pages.yml`: publishes the web app to GitHub Pages on every push to `main`.
 
@@ -49,3 +52,7 @@ open `http://localhost:8000`.
 
 Fonts are Barlow Condensed and IBM Plex, bundled under the SIL Open Font License (see
 `assets/www/fonts`).
+
+## Licence
+
+© 2026 AMB Enterprises Inc. All rights reserved. See `LICENSE`.

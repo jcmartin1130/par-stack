@@ -103,9 +103,29 @@ function webApp(){
   if (navigator.storage && navigator.storage.persist){
     navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => {});
   }
+  const home = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  if (!PS.store.state.settings.setupDone) count("first-run", "New user", true);
+  count(home ? "open/home-screen" : "open/browser", home ? "Opened from home screen" : "Opened in browser");
+  window.addEventListener("appinstalled", () => count("installed", "Installed to home screen", true));
 }
 
-PS.app = {go, back, show, applyTheme, rerenderAll};
+/* Anonymous usage count (GoatCounter): which screen was opened, browser, screen size, rough location.
+   No cookies, no identifiers, never any poker data. Off in the Android app and when turned off in Settings. */
+const COUNTER = "https://parstack.goatcounter.com/count";
+function count(path, title, isEvent){
+  try {
+    if (!COUNTER || PS.store.native || window.PS_PREVIEW || PS.store.state.settings.countVisits === false) return;
+    const live = location.protocol === "https:" && !/^(localhost|127\.)/.test(location.hostname);
+    if (!live && !window.PS_COUNT_TEST) return;
+    const q = new URLSearchParams({p:path, t:title, rnd:Math.random().toString(36).slice(2)});
+    if (isEvent) q.set("e", "true");
+    if (window.screen) q.set("s", [screen.width, screen.height, window.devicePixelRatio || 1].join(","));
+    if (document.referrer && !document.referrer.startsWith(location.origin)) q.set("r", document.referrer);
+    new Image().src = COUNTER + "?" + q.toString();
+  } catch (e) { /* counting is best effort */ }
+}
+
+PS.app = {go, back, show, applyTheme, rerenderAll, count};
 /* called by the Android shell */
 PS.native = {
   onExport(ok, msg){ U.toast(ok ? "Saved: " + msg : msg); },
