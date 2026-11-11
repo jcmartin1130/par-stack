@@ -131,5 +131,21 @@ PS.native = {
   onExport(ok, msg){ U.toast(ok ? "Saved: " + msg : msg); },
   flush(){ PS.store.flush(); }
 };
+/* Par Stack moved from GitHub Pages to parstack.amb.enterprises. On the old address, show a
+   banner so people can export a backup here and import it at the new address (each address
+   keeps its own data). Remove once the old GitHub Pages site is retired. */
+const NEW_HOME = "https://parstack.amb.enterprises/";
+function movedBanner(){
+  if (!/\.github\.io$/.test(location.hostname)) return;
+  const b = document.createElement("div");
+  b.setAttribute("role", "status");
+  b.style.cssText = "position:sticky;top:0;z-index:50;padding:12px 16px;background:#0f2a3d;color:#fff;font-size:14px;line-height:1.45";
+  b.innerHTML = `<b>Par Stack has moved to <a href="${NEW_HOME}" style="color:#e8b04a">parstack.amb.enterprises</a>.</b> `
+    + `Your data stays with this address, so first use <b>Settings &rsaquo; Export backup</b> here, then open the new address, `
+    + `install it to your home screen and use <b>Import backup</b>.`;
+  document.body.prepend(b);
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", movedBanner); else movedBanner();
+
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

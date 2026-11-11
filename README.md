@@ -5,7 +5,8 @@ players. It works offline, and your results, hands and quiz history stay on the 
 The web app sends an anonymous visit count (GoatCounter: no cookies, no poker data),
 which can be turned off in **Settings › Privacy**.
 
-- **Web app:** https://jcmartin1130.github.io/par-stack/ (install it to the home screen)
+- **Web app:** https://parstack.amb.enterprises/ (install it to the home screen)
+- **About and privacy:** https://amb.enterprises/parstack/
 - **Android app:** this Android Studio project, which wraps the same web app
 
 ## Install the web app (iPhone or Android)
@@ -45,7 +46,8 @@ to the phone and open it.
   - `sw.js` is the offline cache. Bump its `VERSION` with each release.
   - `js/app.js` holds the visit counter address (`COUNTER`, a GoatCounter site).
 - `app/src/main/java/ca/parstack/app/MainActivity.java`: the Android shell.
-- `.github/workflows/pages.yml`: publishes the web app to GitHub Pages on every push to `main`.
+- `wrangler.jsonc`: Cloudflare publishes the web app to parstack.amb.enterprises on every push to `main`.
+- `.github/workflows/pages.yml`: still publishes the old GitHub Pages copy, which now shows a "moved" banner. Delete this workflow, and the banner in `js/app.js`, once everyone has moved.
 
 To try the web app locally, run `python3 -m http.server` inside `app/src/main/assets/www` and
 open `http://localhost:8000`.

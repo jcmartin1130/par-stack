@@ -1,0 +1,13 @@
+// Cloudflare Workers config: serves the web app at parstack.amb.enterprises.
+// Cloudflare deploys it automatically on every push to main (Workers Builds).
+{
+  "name": "par-stack",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./app/src/main/assets/www"
+  },
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "parstack.amb.enterprises", "custom_domain": true }
+  ]
+}
