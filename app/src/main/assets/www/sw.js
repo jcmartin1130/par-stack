@@ -1,6 +1,6 @@
 /* Par Stack offline cache. Online: always fetch the latest files, then keep a copy.
    Offline: serve the saved copy. Bump VERSION with each release. */
-const VERSION = "parstack-2026-11-21a";
+const VERSION = "parstack-2026-11-21b";
 const SHELL = [
   "./", "index.html", "manifest.webmanifest",
   "css/fonts.css", "css/app.css",
@@ -46,7 +46,8 @@ self.addEventListener("fetch", event => {
   event.respondWith((async () => {
     const cache = await caches.open(VERSION);
     try {
-      const res = await withTimeout(fetch(req), 5000);
+      /* no-cache: always ask the server, so a new release shows up on the next open */
+      const res = await withTimeout(fetch(req, {cache:"no-cache"}), 5000);
       if (res && res.ok) cache.put(req, res.clone());
       return res;
     } catch (e) {

@@ -250,22 +250,26 @@ function exportFile(name, mime, content){
   if (window.PS_PREVIEW){ copySheet(name, mime, content); return; }
   let file = null;
   try { file = new File([content], name, {type:mime}); } catch (e) { file = null; }
+  const download = () => {
+    try {
+      const url = URL.createObjectURL(new Blob([content], {type:mime}));
+      const a = document.createElement("a");
+      a.href = url; a.download = name; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      U.toast("Saved " + name + " to your Downloads", 3500);
+    } catch (e) { copySheet(name, mime, content); }
+  };
   const ua = navigator.userAgent || "";
-  const mobile = /Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-  /* phones: the share sheet saves to Files, Drive or email; desktops: a normal download */
-  if (file && mobile && navigator.canShare && navigator.canShare({files:[file]})){
+  const ios = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  /* iPhone: the share sheet saves to Files or email. Android and desktops: a normal download
+     (Android's share sheet refuses .json files). If sharing fails, download instead. */
+  if (file && ios && navigator.canShare && navigator.canShare({files:[file]})){
     navigator.share({files:[file], title:name}).then(() => U.toast("Backup shared"))
-      .catch(err => { if (!err || err.name !== "AbortError") copySheet(name, mime, content); });
+      .catch(err => { if (!err || err.name !== "AbortError") download(); });
     return;
   }
-  try {
-    const url = URL.createObjectURL(new Blob([content], {type:mime}));
-    const a = document.createElement("a");
-    a.href = url; a.download = name; a.rel = "noopener";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    U.toast("Saved " + name + " to your downloads", 3500);
-  } catch (e) { copySheet(name, mime, content); }
+  download();
 }
 function importSheet(){
   U.openSheet("Import a backup", (body, close) => {
