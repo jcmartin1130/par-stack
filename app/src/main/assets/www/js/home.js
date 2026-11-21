@@ -7,8 +7,8 @@ const st = () => PS.store.state;
 let root = null;
 
 /* ---------- what to work on: every card comes from a number you produced ---------- */
-const CAT_DAY = {open:0, limp:1, raise:2, bubble:6};
-const CAT_REF = {bb:["Big blind chart","study:charts:bb"], "3bet":["Facing a 3-bet","study:rules"], jam:["Call-a-jam chart","study:charts:open"], limp:["Limpers chart","study:charts:limp"]};
+const CAT_DAY = {open:0, ep:8, limp:9, raise:2, bubble:6};
+const CAT_REF = {bb:["Big blind chart","study:charts:bb"], "3bet":["vs 3-bet charts","study:charts:v3"], jam:["Call-a-jam chart","study:charts:open"], limp:["Limpers chart","study:charts:limp"]};
 function focusCards(){
   const s = st(), out = [];
   /* quiz: weakest spot type over the last 20 answers of each kind */
@@ -16,7 +16,7 @@ function focusCards(){
   if (cats.length && cats[0].r.acc < .8){
     const {c, r} = cats[0];
     const go = [`<button type="button" class="btn dark" data-quiz="${c.k}">Quiz ${U.esc(c.label.toLowerCase())}</button>`];
-    if (CAT_DAY[c.k] != null) go.push(`<button type="button" class="btn ghost" data-day="${CAT_DAY[c.k]}">Day ${CAT_DAY[c.k] + 1}</button>`);
+    if (CAT_DAY[c.k] != null) go.push(`<button type="button" class="btn ghost" data-day="${CAT_DAY[c.k]}">${U.esc(D.dayLabel(CAT_DAY[c.k]))}</button>`);
     else if (CAT_REF[c.k]) go.push(`<button type="button" class="btn ghost" data-go="${CAT_REF[c.k][1]}">${CAT_REF[c.k][0]}</button>`);
     out.push({cls:"", t:`Drill: ${c.label}`, why:`<b>${Math.round(r.acc * 100)}%</b> on your last ${r.n} ${c.label.toLowerCase()} spots, your weakest spot type. Smart mode already deals it more often; aim for 80%.`, go:go.join("")});
   }
@@ -32,7 +32,7 @@ function focusCards(){
   /* most-tagged leak in the hand journal */
   const leaks = PS.hands.leakCounts(s.hands.filter(h => h.date >= since));
   const top = D.LEAKS.filter(l => !l.good && (leaks[l.k] || 0) >= 2).sort((a, b) => leaks[b.k] - leaks[a.k])[0];
-  if (top) out.push({cls:"", t:`Leak: ${top.label}`, why:`Tagged <b>${leaks[top.k]} times</b> in your hands over the last 90 days.`, go:`<button type="button" class="btn dark" data-day="${top.day - 1}">Day ${top.day}: ${U.esc(D.DAYS[top.day - 1].t)}</button>`});
+  if (top) out.push({cls:"", t:`Leak: ${top.label}`, why:`Tagged <b>${leaks[top.k]} times</b> in your hands over the last 90 days.`, go:`<button type="button" class="btn dark" data-day="${top.day - 1}">${top.day <= D.DAYS.length ? `Day ${top.day}: ${U.esc(D.DAYS[top.day - 1].t)}` : `Module: ${U.esc(D.dayLabel(top.day - 1))}`}</button>`});
   /* decision log */
   const ai = {pw:0, pl:0, nw:0, nl:0};
   s.sessions.filter(x => x.date >= since).forEach(x => { if (x.ai) Object.keys(ai).forEach(k => ai[k] += +x.ai[k] || 0); });

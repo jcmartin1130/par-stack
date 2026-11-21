@@ -34,18 +34,20 @@ function renderProgram(el, openDay){
       <div class="meter"><span style="width:${(total / 24 * 100).toFixed(1)}%"></span></div></div>`;
   h += `<div class="days" id="pgDays"></div>`;
   h += `<button type="button" class="tiny" id="pgReset" style="margin-top:12px">Clear the checkmarks</button>`;
+  h += `<p class="h3" style="margin-top:26px">Modules</p><p class="note" style="margin-top:2px">Focused topics to work on any time. They are not part of the 24 checks.</p><div class="days" id="pgMods"></div>`;
   el.innerHTML = h;
   const days = el.querySelector("#pgDays");
-  D.DAYS.forEach((day, i) => {
-    const date = p.start ? U.addDays(p.start, i) : null;
-    const done = dayDone(i), isToday = i === idx, isOpen = i === want;
+  const makeCard = (day, i, mod) => {
+    const date = !mod && p.start ? U.addDays(p.start, i) : null;
+    const done = dayDone(i), isToday = !mod && i === idx, isOpen = mod ? openDay === i : i === want;
+    const sub = () => `${date ? U.fmtDate(date, "dow") + " · " : ""}${dayDone(i)}/3 done${isToday ? " · today" : ""}`;
     const card = document.createElement("div");
     card.id = "pgDay" + i;
     card.className = "day" + (isToday ? " today" : "") + (isOpen ? " open" : "") + (done === 3 ? " done" : "");
     const chk = st().program.done[i] || {};
     card.innerHTML = `<button class="dayhead" type="button" aria-expanded="${isOpen}">
-        <span class="dnum">${String(i + 1).padStart(2, "0")}<em>${date ? U.DOW[U.parse(date).getDay()] : "Day"}</em></span>
-        <span class="dtitle">${day.t}<span>${date ? U.fmtDate(date, "dow") + " · " : ""}${done}/3 done${isToday ? " · today" : ""}</span></span>
+        <span class="dnum">${mod ? day.tag : String(i + 1).padStart(2, "0")}<em>${mod ? "Module" : date ? U.DOW[U.parse(date).getDay()] : "Day"}</em></span>
+        <span class="dtitle">${day.t}<span>${sub()}</span></span>
         <span class="chev" aria-hidden="true">▸</span></button>
       <div class="daybody" ${isOpen ? "" : "hidden"}>
         <p class="rule">${day.rule}</p>
@@ -69,15 +71,17 @@ function renderProgram(el, openDay){
       const d = st().program.done[i] = st().program.done[i] || {};
       d[cb.dataset.k] = cb.checked ? 1 : 0;
       PS.store.save();
-      const n = dayDone(i);
-      card.classList.toggle("done", n === 3);
-      head.querySelector(".dtitle span").textContent = `${date ? U.fmtDate(date, "dow") + " · " : ""}${n}/3 done${isToday ? " · today" : ""}`;
+      card.classList.toggle("done", dayDone(i) === 3);
+      head.querySelector(".dtitle span").textContent = sub();
       const tot = D.DAYS.reduce((s, _, k) => s + dayDone(k), 0);
       el.querySelector(".meter>span").style.width = (tot / 24 * 100).toFixed(1) + "%";
       el.querySelector(".panel .note b").textContent = `${tot} of 24`;
     }));
-    days.appendChild(card);
-  });
+    return card;
+  };
+  D.DAYS.forEach((day, i) => days.appendChild(makeCard(day, i, false)));
+  const mods = el.querySelector("#pgMods");
+  D.EXTRAS.forEach((day, k) => mods.appendChild(makeCard(day, D.DAYS.length + k, true)));
   el.querySelector("#pgGo").addEventListener("click", () => { st().program.start = U.today(); PS.store.save(); renderProgram(el); });
   el.querySelector("#pgStart").addEventListener("change", e => { st().program.start = e.target.value || null; PS.store.save(); renderProgram(el); });
   U.twoTap(el.querySelector("#pgReset"), "Tap again to clear all 24 checks", () => { st().program.done = {}; PS.store.save(); renderProgram(el); });
@@ -98,7 +102,7 @@ function gridRows(fn){
 function renderCharts(el, which){
   which = which || "open";
   el.innerHTML = `<div class="seg accent" id="chSeg"></div><div id="chBody"></div>`;
-  U.seg(el.querySelector("#chSeg"), [{k:"open", label:"Opening"}, {k:"bb", label:"Big blind"}, {k:"limp", label:"Limpers"}, {k:"eq", label:"Equity"}], which,
+  U.seg(el.querySelector("#chSeg"), [{k:"open", label:"Opening"}, {k:"bb", label:"Big blind"}, {k:"v3", label:"vs 3-bet"}, {k:"limp", label:"Limpers"}, {k:"eq", label:"Equity"}], which,
         k => drawChart(el.querySelector("#chBody"), k));
   drawChart(el.querySelector("#chBody"), which);
 }
@@ -107,7 +111,7 @@ function drawChart(box, k){
     box.innerHTML = `<p class="note">First-in raising ranges: the pot is unopened when it reaches you. Suited above the diagonal, offsuit below, pairs on it. Built for a soft live field at 25–45bb with a big blind ante; the jam chart is for 8–12bb.</p>
       <div class="seg" id="tb"></div><div class="gridwrap"><table class="grid" id="g"></table></div>
       <div class="legend"><span><i style="background:var(--accent)"></i>Raise</span><span><i style="background:var(--surface-2)"></i>Fold</span></div><p class="rangemeta" id="m"></p>
-      <p class="note">No ante in your game? Use the next seat's chart: the cutoff chart on the button, the hijack chart in the cutoff.</p>`;
+      <p class="note">No ante in your game? Use the next seat's chart: the cutoff chart on the button, the hijack chart in the cutoff, the UTG chart from UTG+1. From UTG itself, drop 22–44 under 40bb. Early seats raise to 2.5×.</p>`;
     let active = "BTN";
     const draw = () => {
       const set = new Set(RANGES[active]);
@@ -137,6 +141,27 @@ function drawChart(box, k){
       box.querySelector("#m").innerHTML = `<b>Defend ${t.defend} of hands.</b> ${t.blurb}`;
     };
     U.seg(box.querySelector("#tb"), D.BB_TABS, active, x => { active = x; draw(); });
+    draw();
+  } else if (k === "v3"){
+    box.innerHTML = `<p class="note">You opened from UTG to the lojack and someone came over the top. The hands shown are the lojack range; anything you didn't open is greyed out. His range decides more than your cards do.</p>
+      <div class="seg" id="tb"></div><div class="gridwrap"><table class="grid" id="g"></table></div>
+      <div class="legend" id="lg"></div><p class="rangemeta" id="m"></p>
+      <table class="odds"><thead><tr><th>He 3-bets</th><th>You call</th><th>Price</th><th>Bluff needs</th></tr></thead><tbody>
+        <tr><td>To 7.5bb, from behind you</td><td>5bb</td><td>28.6%</td><td>60.0%</td></tr>
+        <tr><td>To 10bb, big blind</td><td>7.5bb</td><td>34.9%</td><td>64.3%</td></tr>
+        <tr><td>All in, 20bb</td><td>17.5bb</td><td>41.2%</td><td>—</td></tr></tbody></table>
+      <p class="note">You opened 2.5bb with a big blind ante. "Price" is the raw equity a call needs; out of position, count on realizing about 78% of it. "Bluff needs" is how often you must fold for his 3-bet to profit with any two cards.</p>`;
+    const pool = new Set(D.EP_POOL);
+    let active = "TIGHT";
+    const draw = () => {
+      box.querySelector("#g").innerHTML = gridRows(l => { if (!pool.has(l)) return "na"; const d = D.v3Decide(active, l); return d === "R" ? "b3" : d === "C" ? "bc" : ""; });
+      const t = D.V3_TABS.find(x => x.k === active);
+      const n = {R:0, C:0}; let tot = 0;
+      D.RANGES.UTG.forEach(l => { const c = D.combos(l), d = D.v3Decide(active, l); tot += c; if (d !== "F") n[d] += c; });
+      box.querySelector("#lg").innerHTML = (t.r ? `<span><i style="background:var(--accent)"></i>${t.r}</span>` : "") + `<span><i style="background:rgba(var(--accent-rgb),.27)"></i>${t.c}</span><span><i style="background:var(--surface-2)"></i>Fold</span><span><i style="background:var(--surface-2);opacity:.3"></i>Not opened</span>`;
+      box.querySelector("#m").innerHTML = `<b>From UTG: continue ${Math.round((n.R + n.C) / tot * 100)}% of your opens.</b> ${t.blurb}`;
+    };
+    U.seg(box.querySelector("#tb"), D.V3_TABS, active, x => { active = x; draw(); });
     draw();
   } else if (k === "limp"){
     box.innerHTML = `<p class="note">Once someone limps in front of you, the pot is bigger, a raise wins it less often, and calling is cheap.</p>
@@ -213,7 +238,7 @@ const RULES_HTML = `
   <div class="ruleitem"><b>Cold call out of position</b><span>Almost never. Same price, three quarters of the realization. From the small blind it is <em>three-bet or fold</em>.</span></div>
   <div class="ruleitem"><b>Multiway: a raise and a caller ahead</b><span>Better price, worse hands. One pair rarely wins a three-way pot, so you need a hand that makes <em>two pair, a set, a straight or a flush</em>. Throw away offsuit broadways and weak aces.</span></div>
   <div class="ruleitem"><b>Set mining with a small pair</b><span>You flop a set <em>11.8%</em> of the time, <em>7.5 to 1 against</em>. You need at least <em>15× the call</em> behind in the shorter stack.</span></div>
-  <div class="ruleitem"><b>Facing a three-bet</b><span>You need <em>27–36%</em> depending on size. <em>Under 25bb there is no calling range</em>: four-bet shove or fold. At 25–45bb call <em>88–JJ, AQs, suited broadways</em> and shove <em>QQ+, AK</em>.</span></div>
+  <div class="ruleitem"><b>Facing a three-bet after a late open</b><span>You need <em>27–36%</em> depending on size. <em>Under 25bb there is no calling range</em>: four-bet shove or fold. At 25–45bb call <em>88–JJ, AQs, suited broadways</em> and shove <em>QQ+, AK</em>. After an early open the bar is higher: see Early and middle position below.</span></div>
 </div>
 <p class="h3">Reading the sizing</p>
 <div class="rules">
@@ -229,6 +254,21 @@ const RULES_HTML = `
   <div class="ruleitem"><b>More than a third of your stack without a plan</b><span>Name the flops you continue on before you put the chips in. "I will see what happens" is a fold.</span></div>
   <div class="ruleitem"><b>A small pair without 15× behind</b><span>No implied odds, no call.</span></div>
   <div class="ruleitem"><b>A hand you will fold on most flops</b><span>A9o against an early raise misses two thirds of flops and is dominated on the third where it hits.</span></div>
+</div></section>
+<section class="sec"><h2>Early and middle position</h2>
+<div class="rules">
+  <div class="ruleitem"><b>Open tight, open 2.5×</b><span>UTG <em>15%</em>, UTG+1 <em>17%</em>, UTG+2 <em>19%</em>, lojack <em>21%</em>. Every pair and every suited ace from UTG; offsuit hands start at <em>AJo and KQo</em>.</span></div>
+  <div class="ruleitem"><b>Read the 3-bettor first</b><span>A tight live 3-bet is about <em>JJ+, AK, AQs</em>. At 25–45bb jam <em>QQ+</em>, call <em>AK and JJ</em>, fold the rest. That keeps 20% of a UTG range, and against this range that's enough.</span></div>
+  <div class="ruleitem"><b>Against a light 3-bettor, defend half</b><span>He 3-bets <em>99+, AQ+, AJs, KQs</em> and some suited aces. Jam <em>TT+ and AK</em>; call <em>smaller pairs, AQ, AJs</em>.</span></div>
+  <div class="ruleitem"><b>Deep, 80bb+</b><span>4-bet <em>KK+</em>; call <em>QQ–TT and AK</em>; set-mine 99–22 only with <em>15× the call</em> behind.</span></div>
+  <div class="ruleitem"><b>He shoves 15–25bb</b><span>Price it: <em>41.2%</em> at 20bb. Tight jammer: <em>JJ+, AK</em>. Wide jammer: <em>55+, ATs+, AJo+, KQs</em>.</span></div>
+</div></section>
+<section class="sec"><h2>When to limp</h2>
+<div class="rules">
+  <div class="ruleitem"><b>Never open-limp from UTG to the button</b><span>A raise wins the 2.5bb whenever everyone folds. A limp never does, and it invites a raise you have to fold to.</span></div>
+  <div class="ruleitem"><b>Behind limpers, yes</b><span>Complete the small blind wide (<em>10%</em> needed with two limpers ahead) and overlimp the button with pairs and suited hands.</span></div>
+  <div class="ruleitem"><b>Small blind against a sticky big blind</b><span>Big blind ante, and he calls raises but never raises limps: raise the top <em>35%</em>, complete <em>52%</em>, fold the 14 worst offsuit hands.</span></div>
+  <div class="ruleitem"><b>The moment he raises a limp</b><span>Go back to raise-or-fold. The limp only works because he lets it.</span></div>
 </div></section>
 <section class="sec"><h2>Big blind defence</h2>
 <div class="rules">
@@ -263,6 +303,34 @@ const LESSONS = [
     <p>Split that over the players left to act. On the button with no ante, a 2.2× steal needs each of the two players behind to fold <b>77.1%</b> of the time (√0.595). With an ante, a cutoff steal into three players needs <b>77.6%</b> from each. The cutoff with no ante needs 84.1% per player, close to the hijack's 82.7% with one.</p>
     <p>Calling costs more too. Against a 2.5× open the big blind needs 27.3% instead of 23.1%, and a cold call 38.5% instead of 33.3%.</p>
     <div class="takeaway"><b>Takeaway</b>No ante: use the cutoff chart on the button and the hijack chart in the cutoff, and defend a little tighter. Big blind ante: the charts as printed. This treats the open as a pure bluff; real hands also win when called, so the charts open wider than this, but the shift between structures is the same size.</div>`},
+  {id:"early", t:"Opening from early position", s:"Why UTG is 15% and the button 48%", body:`
+    <p>Early opens aren't steals. With a big blind ante a 2.5× open risks 2.5bb to win 2.5bb, so as a pure bluff everyone has to fold half the time. Spread that over the players behind you, then ask how often one of them simply has a big hand. The last two columns come from 200,000 dealt nine-handed tables.</p>
+    <table class="odds"><thead><tr><th>Seat</th><th>Behind</th><th>Each must fold</th><th>QQ+/AK behind</th><th>TT+/AQ+</th></tr></thead><tbody>
+      <tr><td>UTG</td><td>8</td><td>91.7%</td><td>19.2%</td><td>32.6%</td></tr><tr><td>UTG+1</td><td>7</td><td>90.6%</td><td>17.0%</td><td>29.0%</td></tr>
+      <tr><td>UTG+2</td><td>6</td><td>89.1%</td><td>14.7%</td><td>25.4%</td></tr><tr><td>Lojack</td><td>5</td><td>87.1%</td><td>12.4%</td><td>21.5%</td></tr>
+      <tr><td>Hijack</td><td>4</td><td>84.1%</td><td>10.0%</td><td>17.6%</td></tr><tr><td>Cutoff</td><td>3</td><td>79.4%</td><td>7.5%</td><td>13.5%</td></tr>
+      <tr><td>Button</td><td>2</td><td>70.7%</td><td>5.1%</td><td>9.2%</td></tr></tbody></table>
+    <p>From UTG someone behind holds QQ+ or AK about one time in five, and TT+ or AQ+ one time in three. ATo, KJo and A9o look playable, but they're dominated in exactly the hands where they get action. That is why the UTG chart is 15% and the button's 48%.</p>
+    <p>The raise still earns before the cards matter. If each player behind continues with 7% of hands, all eight fold <b>56%</b> of the time and the open collects 2.5bb. A limp collects nothing (see When limping makes sense).</p>
+    <div class="takeaway"><b>Takeaway</b>Open 15% from UTG, then add a few hands per seat: 17%, 19%, 21%, then the hijack's 25%. Raise to 2.5×. With no ante, play one seat tighter, and from UTG drop 22–44 under 40bb.</div>`},
+  {id:"vs3bet", t:"Facing a 3-bet after an early open", s:"Minimum defence, his range, and three options priced", body:`
+    <p>Two numbers frame every 3-bet: what his bluff needs, and what your call needs.</p>
+    <div class="formula">folds he needs = risk ÷ (risk + pot)<small>risk is his 3-bet less any blind he posted; pot is everything in the middle before it. You open 2.5bb, he 3-bets to 7.5bb from behind you: 7.5 ÷ 12.5 = 60%, so the textbook minimum defence is 40%</small></div>
+    <p>Against a big blind's 3-bet to 10bb he risks 9 to win 5: 64.3%, a minimum defence of 35.7%.</p>
+    <p>Minimum defence assumes he can be bluffing. A typical live 3-bet over an early open is about <b>JJ+, AK and AQs</b> (3.3% of hands). The aggressive regular's is <b>99+, AQ+, AJs, KQs, A5s and A4s</b> (6.3%). Your equity against each:</p>
+    <table class="odds"><thead><tr><th>Your hand</th><th>vs tight</th><th>vs aggressive</th></tr></thead><tbody>
+      <tr><td>QQ</td><td>48.4%</td><td>59.8%</td></tr><tr><td>AKo</td><td>42.8%</td><td>52.6%</td></tr><tr><td>JJ</td><td>38.3%</td><td>52.6%</td></tr>
+      <tr><td>TT</td><td>35.5%</td><td>47.5%</td></tr><tr><td>66</td><td>35.0%</td><td>40.0%</td></tr><tr><td>AQo</td><td>29.3%</td><td>42.0%</td></tr>
+      <tr><td>AJs</td><td>29.5%</td><td>39.0%</td></tr><tr><td>KQs</td><td>29.2%</td><td>35.6%</td></tr><tr><td>KQo</td><td>25.1%</td><td>31.8%</td></tr></tbody></table>
+    <p>To turn equity into a decision, the model prices all three options at 35bb, out of position against a 3-bet to 7.5bb. A call realizes 78% of your equity. A 4-bet jam is called by JJ+ and AK (tight player) or by TT+, AQs+ and AKo (aggressive), and everything else folds.</p>
+    <table class="odds"><thead><tr><th>Hand</th><th>vs tight</th><th>vs aggressive</th></tr></thead><tbody>
+      <tr><td>QQ</td><td>jam +2.4bb</td><td>jam +8.3bb</td></tr><tr><td>AKo</td><td>call +0.8bb</td><td>jam +4.6bb</td></tr>
+      <tr><td>JJ</td><td>call +0.2bb</td><td>jam +4.9bb</td></tr><tr><td>TT</td><td>fold</td><td>jam +1.7bb</td></tr>
+      <tr><td>66</td><td>fold</td><td>call +0.5bb</td></tr><tr><td>AQo</td><td>fold</td><td>call +0.7bb</td></tr>
+      <tr><td>KQo</td><td>fold</td><td>fold</td></tr></tbody></table>
+    <p>Against the tight player a UTG opener continues with <b>20%</b> of the range: half the textbook 40%, and correct, because the textbook number assumes he bluffs. Against the aggressive player you keep <b>56%</b>.</p>
+    <p>Short stacks jam instead. Calling a reshove of S over your 2.5bb open needs (S − 2.5) ÷ (2S + dead money): <b>38.5%</b> at 15bb, <b>41.2%</b> at 20bb, <b>42.9%</b> at 25bb. JJ has 46.8% against a tight jam (TT+, AQ+), TT only 40.4%. Against a wide jam (77+, A9s+, ATo+, KJs+, KQo, QJs), AJo has 44.8%.</p>
+    <div class="takeaway"><b>Takeaway</b>Read the 3-bettor before the chart. Tight player at 25–45bb: jam QQ+, call AK and JJ, fold the rest. Aggressive player: jam TT+ and AK, call smaller pairs, AQ and AJs. At 80bb+: 4-bet KK+, call QQ–TT and AK, set-mine only with 15× behind. <button type="button" class="linkbtn" data-go="study:charts:v3">Open the vs 3-bet charts</button></div>`},
   {id:"reshove", t:"Reshove math", s:"Three-bet all-in over an open", body:`
     <p>Two things win when you three-bet all-in: he folds, or he calls and you win the showdown. His price tells you how often he can call.</p>
     <div class="formula">opener needs = (S − r) ÷ (B + 2S)<small>S your stack, r his open, B the blinds and antes before he opened (2.5bb with a big blind ante)</small></div>
@@ -276,6 +344,18 @@ const LESSONS = [
     <div class="formula">P(set or better on the flop) = 1 − (48·47·46) ÷ (50·49·48) = 11.8%</div>
     <p>That is 7.5 to 1 against. To break even on the call alone you have to win 7.5 times what you called every time you hit. You won't: sometimes he misses and pays nothing, sometimes the set loses.</p>
     <div class="takeaway"><b>Takeaway</b>Set-mine only with 15× the call behind in the shorter stack. Calling 2.5bb at 20bb deep loses; at 60bb it is fine.</div>`},
+  {id:"limping", t:"When limping makes sense", s:"Prices, the open-limp, and the small blind", body:`
+    <p>A limp is a price. Completing the small blind costs half a big blind and overlimping costs one. Whether that is cheap depends on what is already in the pot and on who acts after you.</p>
+    <table class="odds"><thead><tr><th>Spot</th><th>BB ante</th><th>No ante</th></tr></thead><tbody>
+      <tr><td>SB completes, folded to you</td><td>16.7%</td><td>25.0%</td></tr><tr><td>SB completes, two limpers</td><td>10.0%</td><td>12.5%</td></tr>
+      <tr><td>Button overlimps, two limpers</td><td>18.2%</td><td>22.2%</td></tr><tr><td>SB raises 3×: folds needed</td><td>50.0%</td><td>62.5%</td></tr></tbody></table>
+    <p><b>Open-limping from UTG to the button</b> never makes the list. A raise wins the 2.5bb whenever everyone folds, 56% of the time from UTG if each player continues with 7%. A limp wins nothing before the flop and lets anyone behind raise you off the hand.</p>
+    <p><b>Small blind, folded to you.</b> Solver strategies for tournaments with an ante use a lot of small-blind limps, but they also defend those limps against a big blind who raises them. Against a big blind who doesn't, the price is simply good. The model behind the Limpers chart's SB first-in tab assumes that big blind folds 25% to a 3× raise and calls the rest, raises your limp only with TT+, AQs+ and AKo, and that out of position you realize 80% of your equity with pairs, suited, connected and two-broadway hands and 60% with the rest. Equities from eval7. Under those assumptions, per small-blind hand:</p>
+    <table class="odds"><thead><tr><th>Strategy</th><th>BB ante</th></tr></thead><tbody>
+      <tr><td>Raise or fold (the 51% chart)</td><td>+0.44bb</td></tr><tr><td>Raise 35%, complete 52%, fold 13%</td><td>+0.59bb</td></tr></tbody></table>
+    <p>The simple chart gives up only 0.03bb a hand against the model's own best play. Without an ante the same model raises the top 23% and folds the same 14 hands: 72o, 62o, 82o, 52o, 83o, 73o, 63o, 92o, 74o, 84o, 93o, 94o, T2o and 85o.</p>
+    <p><b>Short-stack traps.</b> Under about 12bb, limping a premium from the small blind and shoving over a raise can work against a big blind who attacks every limp. That is a read, not a default.</p>
+    <div class="takeaway"><b>Takeaway</b>Limp behind limpers with hands that make big hands, and from the small blind against a big blind who never raises a limp. Everywhere else, raise or fold. <button type="button" class="linkbtn" data-go="study:charts:limp">Open the Limpers chart</button></div>`},
   {id:"icm", t:"ICM: why the bubble raises the price", s:"Chips are not money", body:`
     <p>Prizes are paid by finishing place, so the chips you would lose cost more than the same chips won are worth. ICM (the Malmuth-Harville model) turns stacks into a share of the prize pool, so you can price an all-in in dollars.</p>
     <div class="formula">need = (EV fold − EV lose) ÷ (EV win − EV lose)<small>each EV is your share of the prize pool after that outcome</small></div>
@@ -380,6 +460,14 @@ function renderTools(el, open){
     <div class="field"><label for="trF">He folds %</label><input id="trF" type="number" inputmode="decimal" value="55"></div></div>
     <div class="calcout"><span class="big" id="trOut">—</span><span class="cap">expected value of the shove</span></div><p class="calcnote" id="trNote"></p></div>
 
+  <div class="calc" id="t-3bet"><h3>Facing a 3-bet<span>After you open, in big blinds</span></h3>
+    <div class="grid3"><div class="field"><label for="t3R">Your open</label><input id="t3R" type="number" inputmode="decimal" value="2.5" step="0.1"></div>
+    <div class="field"><label for="t3X">His 3-bet to</label><input id="t3X" type="number" inputmode="decimal" value="7.5" step="0.5"></div>
+    <div class="field"><label for="t3S">Your stack</label><input id="t3S" type="number" inputmode="decimal" value="35"></div></div>
+    <div class="grid2" style="margin-top:10px"><div class="field"><label for="t3Who">He is in</label><select id="t3Who"><option value="0">A seat behind you</option><option value="0.5">The small blind</option><option value="1">The big blind</option></select></div>
+    <div class="field"><label for="t3A">Structure</label><select id="t3A"><option value="1">BB ante</option><option value="0">No ante</option></select></div></div>
+    <div class="calcout"><span class="big" id="t3Out">—</span><span class="cap">equity a call needs, before position</span></div><p class="calcnote" id="t3Note"></p></div>
+
   <div class="calc" id="t-icm"><h3>ICM<span>Prize-pool share and all-in calls</span></h3>
     <div class="field"><span class="lbl">Stacks at the start of the hand</span><div class="icmrows" id="tiRows"></div>
       <div class="btnrow"><button type="button" class="tiny" id="tiAdd">Add player</button><button type="button" class="tiny" id="tiEx">Load the bubble example</button></div></div>
@@ -446,6 +534,21 @@ function renderTools(el, open){
     $("trOut").textContent = (ev >= 0 ? "+" : U.MINUS) + Math.abs(ev).toFixed(2) + "bb";
     $("trOut").style.color = ev >= 0 ? "var(--ok)" : "var(--accent)";
     $("trNote").innerHTML = `He needs <b>${(opp * 100).toFixed(1)}%</b> to call. If he always calls you need ${(heroNeed * 100).toFixed(1)}%. With ${Math.round(e * 100)}% when called, the shove breaks even if he folds <b>${(be * 100).toFixed(1)}%</b> of the time.`;
+  });
+
+  on(["t3R","t3X","t3S","t3Who","t3A"], () => {
+    const r = num($("t3R").value), x = num($("t3X").value), S = num($("t3S").value), posted = num($("t3Who").value), ante = num($("t3A").value);
+    if (!(r > 0 && x > r && S > x)){ $("t3Out").textContent = "—"; $("t3Note").textContent = "His 3-bet must be bigger than your open, and your stack bigger than his 3-bet."; return; }
+    const pot0 = r + 1.5 + ante;                 /* pot before his 3-bet, his blind included */
+    const risk = x - posted, bluff = risk / (risk + pot0);
+    const call = x - r, potNow = pot0 - posted + x, need = call / (potNow + call);
+    const oop = posted === 0, adj = need / (oop ? 0.78 : 0.93);
+    const mult = (S - r) / call, dead = pot0 - r - posted, jam = (S - x) / (2 * S + dead);
+    $("t3Out").textContent = (need * 100).toFixed(1) + "%";
+    $("t3Note").innerHTML = `Call ${call.toFixed(1)}bb to win ${potNow.toFixed(1)}bb. ${oop ? "Out of position you realize about 78% of your equity, so plan on" : "In position you realize about 93%, so plan on"} <b>${(adj * 100).toFixed(1)}%</b>. `
+      + `As a pure bluff his 3-bet needs you to fold <b>${(bluff * 100).toFixed(1)}%</b> (minimum defence ${((1 - bluff) * 100).toFixed(1)}%). `
+      + `Your stack is ${mult.toFixed(1)}× the call: ${mult >= 15 ? "enough to set-mine a small pair." : "short of the 15× a small pair needs to set-mine."} `
+      + `If you 4-bet all in, he needs <b>${(jam * 100).toFixed(1)}%</b> to call.`;
   });
 
   /* ICM */

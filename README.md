@@ -34,8 +34,8 @@ to the phone and open it.
 | Tab | What it does |
 | --- | --- |
 | Home | This month's spend against your budget; what to work on next (from your quiz misses, first-in rate, tagged leaks and decision log); what's coming up; the table counter. |
-| Quiz | Fold, call or raise across seven spot types, graded against the course charts. *Smart* deals more of the spots you miss. |
-| Study | The eight-day program, range charts, rules, math lessons with worked examples, and calculators: call price, steal, reshove, ICM (with satellites), par stack, bet math, stack gear. |
+| Quiz | Fold, call or raise across eight spot types, graded against the course charts, including early and middle-position opens, facing a 3-bet or a reshove, and when to limp. *Smart* deals more of the spots you miss. |
+| Study | The eight-day program plus two modules (Early & Middle Position, When to Limp), range charts for every seat and for facing a 3-bet, rules, math lessons with worked examples, and calculators: call price, steal, reshove, facing a 3-bet, ICM (with satellites), par stack, bet math, stack gear. |
 | Ledger | Results with buy-ins, re-entries, add-ons, cashes, finish and field. Trip costs, net, ROI, ITM, final tables and $/hour. Charts, a by-series table, the budget, a 95% range on ROI, the all-in decision log, first-in rate and a schedule with planned spend. |
 | Hands | Key hands with a chart check, a decision grade kept separate from the result, and leak tags. |
 

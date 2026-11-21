@@ -5,7 +5,8 @@
 "use strict";
 const PS = window.PS, D = PS.data, U = PS.ui;
 const {ALL, GRID, cellLabel, combos, S, OPEN, SHOVE10, CALL15, OPENMETA, BBMETA, RESTEAL_LATE, RESTEAL_EP, BB_SHOVE15,
-       COLD_3B, COLD_CALL, SMALL_PAIRS, V3_SHOVE, V3_CALL, BUBBLE_CALL, LIMP, RANGES, BBDEF, EQ} = D;
+       COLD_3B, COLD_CALL, SMALL_PAIRS, V3_SHOVE, V3_CALL, BUBBLE_CALL, LIMP, RANGES, BBDEF, EQ,
+       EPEQ, EP3, V3_TABS, v3Decide} = D;
 
 const POS = D.POS;
 const PNAME = {"UTG":"UTG","UTG+1":"UTG+1","UTG+2":"UTG+2","LJ":"the lojack","HJ":"the hijack","CO":"the cutoff","BTN":"the button","SB":"the small blind","BB":"the big blind"};
@@ -78,7 +79,7 @@ function oppNeed(sp, opp){
 function foldedTo(hero){
   if (hero === "SB") return "Folded to you in the small blind. Only the big blind is left.";
   const left = POS.length - 1 - pi(hero);
-  return `Folded to you ${pIn(hero)}. ${["","One player","Two players","Three players","Four players"][left]} left to act.`;
+  return `Folded to you ${pIn(hero)}. ${["","One player","Two players","Three players","Four players","Five players","Six players","Seven players","Eight players"][left]} left to act.`;
 }
 const limpSub = sp => sp.hero === "SB" ? `Complete ${fmt(sp.L.bb - sp.L.sb)}` : `Limp ${fmt(sp.L.bb)}`;
 
@@ -290,6 +291,156 @@ function gBubbleCall(){
   return sp;
 }
 const gBubbleShove = () => gOpenShort({bubble:Math.floor(rnd(2, 10)), minLevel:7});
+/* ===== early and middle position (module: Early & Middle Position) ===== */
+const EP_SEATS = [["UTG",3],["UTG+1",3],["UTG+2",2],["LJ",2]];
+/* chance at least one player behind holds QQ+ or AK, by players behind (simulated with card removal) */
+const PREM_BEHIND = {8:19.2, 7:17.0, 6:14.7, 5:12.4, 4:10.0, 3:7.5, 2:5.1, 1:2.6};
+const SEATWORD = {LJ:"in the lojack", HJ:"in the hijack", CO:"in the cutoff", BTN:"on the button", SB:"in the small blind"};
+const pct1 = x => (x * 100).toFixed(1) + "%";
+function gOpenEP(){
+  const hero = wpick(EP_SEATS);
+  const sp = newSpot(hero, 25, 60);
+  foldRange(sp, 0, pi(hero));
+  const m = OPENMETA[hero], bb = sp.L.bb, to = rc(2.5 * bb, bb), left = POS.length - 1 - pi(hero);
+  const dead = sp.L.sb + bb + sp.L.ante;
+  sp.type = hero + " first in";
+  sp.prompt = foldedTo(hero);
+  sp.actions.C.sub = limpSub(sp);
+  sp.actions.R.sub = `Raise to ${fmt(to)}`;
+  sp.legend.R = "Raise 2.5×";
+  sp.decide = l => OPEN[hero].has(l) ? "R" : "F";
+  sp.rangeName = `${m.name} first-in range (${m.pct} of hands)`;
+  sp.rule = {tag:m.tag, text:m.text};
+  sp.reasonFor = (l, d) => {
+    if (d === "R") return `<code>${l}</code> is in the ${m.name} first-in range (${m.pct} of hands).`;
+    const first = ["UTG","UTG+1","UTG+2","LJ","HJ","CO","BTN"].find(p => OPEN[p].has(l));
+    return `<code>${l}</code> is outside the ${m.name} range (${m.pct} of hands).` +
+      (first ? ` It becomes an open ${SEATWORD[first] || "at " + first}.` : " It isn't an open from any seat before the small blind.");
+  };
+  sp.callNote = "An open-limp can't win the pot before the flop, and it invites a raise from behind that you have to fold to. From UTG to the button it is raise or fold (module: When to Limp).";
+  sp.steal = {risk:to, dead};
+  const need = to / (to + dead);
+  sp.extra = [["Players behind", `${left} still to act. A pure bluff needs each of them to fold <b>${pct1(Math.pow(need, 1 / left))}</b> of the time, and one of them holds QQ+ or AK <b>${PREM_BEHIND[left]}%</b> of the time. Early opens are value bets.`]];
+  return sp;
+}
+const PROFILE = {
+  TIGHT:{who:"a tight player who hasn't three-bet all day", range:"JJ+, AK and AQs (3.3% of hands)", ei:0},
+  AGGR:{who:"who has three-bet three times this level", range:"99+, AQ+, AJs, KQs, A5s and A4s (6.3% of hands)", ei:1},
+  DEEP:{who:"a tight player who hasn't three-bet all day", range:"JJ+, AK and AQs (3.3% of hands)", ei:0}
+};
+function gEP3(force){
+  const hero = wpick(EP_SEATS);
+  const mode = force || wpick([["TIGHT",5],["AGGR",3],["DEEP",2]]);
+  const sp = mode === "DEEP" ? newSpot(hero, 80, 125) : mode === "AGGR" ? newSpot(hero, 30, 40) : newSpot(hero, 25, 45);
+  const bb = sp.L.bb, open = rc(2.5 * bb, bb);
+  const ip = mode === "DEEP" || Math.random() < .6;              /* ip: the 3-bettor acts after you */
+  const tb = ip ? pick(["HJ","CO","CO","BTN","BTN","BTN"]) : pick(["SB","BB"]);
+  const x = rc((ip ? 3 : 4) * open, bb);
+  foldRange(sp, 0, pi(hero));
+  sp.seats[hero].bet = open;
+  foldRange(sp, pi(hero) + 1, pi(tb));
+  villain(sp, tb, "3bet", x, Math.max(rc(rnd(1.1, 2.5) * sp.H, bb), sp.H + 10 * bb));
+  foldRange(sp, pi(tb) + 1, POS.length);
+  const P = PROFILE[mode], tab = V3_TABS.find(t => t.k === mode);
+  const posted = tb === "SB" ? sp.L.sb : tb === "BB" ? bb : 0;
+  const pot0 = potOf(sp) - x + posted, risk = x - posted, bluff = risk / (risk + pot0);
+  const mult = (sp.H - open) / (x - open);
+  sp.type = `${hero} open, facing ${tb} 3-bet` + (mode === "DEEP" ? ", deep" : mode === "AGGR" ? ", aggressive" : "");
+  sp.prompt = `You open ${hero === "LJ" ? "the lojack" : hero} to ${fmt(open)}. ${pThe(tb)}, ${P.who}, three-bets to ${fmt(x)}.` +
+    (tb === "SB" ? " The big blind folds." : ip ? " The blinds fold." : "");
+  const pr = priceOf(sp);
+  sp.actions.C.sub = `Call ${fmt(pr.toCall)}`;
+  sp.actions.R.sub = mode === "DEEP" ? `4-bet to ${fmt(rc(2.2 * x, bb))}` : `4-bet all-in ${fmt(sp.H)}`;
+  sp.legend.R = mode === "DEEP" ? "4-bet" : "4-bet jam";
+  sp.pool = RANGES[hero];
+  sp.price = pr;
+  sp.decide = l => v3Decide(mode, l, {mult});
+  sp.rule = {tag:"Facing a 3-bet · " + tab.label, text:tab.blurb};
+  sp.reasonFor = (l, d) => {
+    const e = EPEQ[l], eq = e ? `${e[P.ei]}%` : "little", c = `<code>${l}</code>`;
+    const vs = `against his range (${P.range.split(" (")[0]})`;
+    if (mode === "DEEP"){
+      if (d === "R") return `${c} is a value 4-bet: deep against a tight player, only KK+ wants all the money in.`;
+      if (EP3.DEEP.SET.has(l)) return d === "C" ? `${c} is a set-mining call: you have ${mult.toFixed(1)}× the call, above the 15× line.`
+        : `${c} only plays for a set, and you have just ${mult.toFixed(1)}× the call. Set mining needs 15×.`;
+      if (d === "C") return `${c} has ${eq} ${vs}. Call and keep his dominated hands in; a 4-bet only gets action from better.`;
+      return `${c} has ${eq} ${vs}, and it is dominated by most of what continues. Fold it, even deep.`;
+    }
+    if (d === "R") return `${c} has ${eq} ${vs}. Jam: he calls with hands you beat often enough, and folds the rest.`;
+    if (d === "C") return `${c} has ${eq} ${vs}: enough to call, but a jam only gets called by the hands that beat it.`;
+    return `${c} was a fine open, but it has ${eq} ${vs}. That is short of the price once you count ${ip ? "playing out of position" : "the rest of the hand"}.`;
+  };
+  sp.extra = [
+    ["His range", `${P.range}.`],
+    ["Minimum defence", `His 3-bet risks ${bbs(risk, bb)}bb to win ${bbs(pot0, bb)}bb, so as a pure bluff it needs you to fold <b>${pct1(bluff)}</b>, and the textbook says keep <b>${pct1(1 - bluff)}</b> of your opens. ` +
+      (mode === "AGGR" ? "This player does bluff, so defend close to that." : "A tight player is rarely bluffing, which is why folding more often is right here.")]
+  ];
+  if (mode === "DEEP") sp.extra.push(["Set mining", `Your stack is ${mult.toFixed(1)}× the call. A small pair needs 15×.`]);
+  sp.opp = mode === "DEEP" ? null : tb;
+  return sp;
+}
+function gEPShove(){
+  const hero = wpick(EP_SEATS), wide = Math.random() < .45;
+  const sp = newSpot(hero, 15, 25);
+  const bb = sp.L.bb, open = rc(2.5 * bb, bb);
+  const jammer = pick(["HJ","CO","BTN","BTN","SB","BB"]);
+  const J = Math.min(sp.H, Math.max(rc(rnd(.7, 1.0) * sp.H, bb), 10 * bb));
+  foldRange(sp, 0, pi(hero));
+  sp.seats[hero].bet = open;
+  foldRange(sp, pi(hero) + 1, pi(jammer));
+  villain(sp, jammer, "jam", J, J);
+  foldRange(sp, pi(jammer) + 1, POS.length);
+  const pr = priceOf(sp), need = pr.need, ei = wide ? 3 : 2, tab = V3_TABS.find(t => t.k === (wide ? "SHOVE_W" : "SHOVE_T"));
+  sp.type = `${hero} open, ${jammer} reshove` + (wide ? ", wide" : "");
+  sp.prompt = `You open ${hero === "LJ" ? "the lojack" : hero} to ${fmt(open)}. ${pThe(jammer)}, ${wide ? "a short stack who has been shoving wide" : "a tight player"}, moves all-in for ${fmt(J)}.` +
+    (jammer === "SB" ? " The big blind folds." : jammer === "BB" ? "" : " The blinds fold.");
+  sp.actions.C.sub = `Call ${fmt(pr.toCall)}`;
+  sp.actions.R.on = false; sp.actions.R.sub = "He is all in";
+  sp.pool = RANGES[hero];
+  sp.price = pr;
+  sp.decide = l => v3Decide(wide ? "SHOVE_W" : "SHOVE_T", l, {need});
+  sp.closeFor = l => { const e = EPEQ[l]; return e && Math.abs(e[ei] / 100 - need) < .015 ? ["C","F"] : null; };
+  sp.rule = {tag:"Facing a reshove · 15–25bb", text:tab.blurb};
+  sp.reasonFor = (l, d) => {
+    const e = EPEQ[l], c = `<code>${l}</code>`;
+    if (!e) return `${c} is not in your opening range.`;
+    const close = Math.abs(e[ei] / 100 - need) < .015 ? " Within a point and a half of the price: either play is fine." : "";
+    return `${c} has <b>${e[ei]}%</b> against his ${wide ? "wide" : "tight"} jamming range, and you need ${pct1(need)}. ${d === "C" ? "Call." : "Fold."}${close}`;
+  };
+  sp.extra = [["His range", wide ? "77+, A9s+, ATo+, KJs+, KQo and QJs: 10.6% of hands." : "TT+, AQs+, AKo and AQo: 4.7% of hands."]];
+  return sp;
+}
+/* small blind first in against a big blind who calls raises but never raises limps (module: When to Limp) */
+function gSBSticky(){
+  const sp = newSpot("SB", 25, 60);
+  foldRange(sp, 0, pi("SB"));
+  const bb = sp.L.bb;
+  sp.type = "SB first in, sticky BB";
+  sp.prompt = "Folded to you in the small blind. The big blind calls almost every raise, and he hasn't raised a limp all night.";
+  sp.actions.C.sub = `Complete ${fmt(bb - sp.L.sb)}`;
+  sp.actions.R.sub = `Raise to ${fmt(3 * bb)}`;
+  sp.legend.R = "Raise 3×"; sp.legend.C = "Complete";
+  sp.decide = l => LIMP.decide("SBSTICKY", l);
+  sp.price = priceOf(sp);
+  sp.rule = {tag:"When to limp · SB vs a sticky big blind", text:"Big blind ante, folded to you, and the big blind calls raises but never raises limps. Raise the top 35% for value, complete 52%, and fold only the 14 worst offsuit hands. If he ever raises a limp, go back to raise-or-fold."};
+  sp.reasonFor = (l, d) => {
+    const c = `<code>${l}</code>`;
+    if (d === "R") return `${c} is in the top 35%: it has 50% or more against the wide range he calls a raise with, so build the pot.`;
+    if (d === "C") return `${c} completes. ${fmt(sp.price.toCall)} more to see a flop needs just ${pct1(sp.price.need)} equity, and this big blind won't raise you off the hand.`;
+    return `${c} is one of the 14 offsuit hands that lose money even at this price once you're out of position.`;
+  };
+  sp.missNote = (a, d) => {
+    if (a === "R" && d === "C") return "Raising this hand into a player who calls everything builds a big pot out of position with a hand that is behind his calling range. Complete and take the cheap flop.";
+    if (a === "C" && d === "R") return "This hand is ahead of his calling range. He calls raises, so raise and let him pay.";
+    if (a === "F" && d === "C") return `At ${pct1(sp.price.need)} this completion makes money. Against this big blind, folding gives up a cheap flop.`;
+    if (a === "F" && d === "R") return "Strong enough to raise for value against his wide calling range.";
+    if (a === "C" && d === "F") return "One of the 14 worst offsuit hands: even half a big blind loses money out of position.";
+    if (a === "R" && d === "F") return "Raising trash into a player who calls everything gets called and leaves you out of position with nothing.";
+    return "";
+  };
+  return sp;
+}
+
 
 const shuffle = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const joinNames = a => a.length === 1 ? a[0] : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
@@ -366,10 +517,11 @@ function gLimp(kind){
 
 const CATS = [
   {k:"open",   label:"First in",       w:25, gens:[[gOpenDeep,3],[gOpenShort,1]]},
-  {k:"limp",   label:"Limpers ahead",  w:14, gens:[[() => gLimp("SB"),2],[() => gLimp("BTN"),2],[() => gLimp("SHORT"),1]]},
+  {k:"ep",     label:"Early & middle", w:16, gens:[[gOpenEP,3],[() => gEP3(),4],[gEPShove,2]]},
+  {k:"limp",   label:"Limping",        w:14, gens:[[() => gLimp("SB"),2],[() => gLimp("BTN"),2],[() => gLimp("SHORT"),1],[gSBSticky,2]]},
   {k:"bb",     label:"Big blind",      w:20, gens:[[gBBDefend,3],[gBBShort,1]]},
   {k:"raise",  label:"Facing a raise", w:20, gens:[[gResteal,1],[gCold,1]]},
-  {k:"3bet",   label:"Facing a 3-bet", w:12, gens:[[gFacing3,1]]},
+  {k:"3bet",   label:"Facing a 3-bet", w:12, gens:[[gFacing3,2],[() => gEP3(),1],[gEPShove,1]]},
   {k:"jam",    label:"Facing all-in",  w:12, gens:[[gJam,1]]},
   {k:"bubble", label:"Bubble",         w:11, gens:[[gBubbleCall,1],[gBubbleShove,1]]}
 ];
@@ -497,6 +649,7 @@ function deal1(){
   sp.hand = pickHand(sp); lastHand = sp.hand;
   sp.cards = deal(sp.hand);
   sp.answer = sp.decide(sp.hand);
+  sp.altOK = sp.closeFor ? sp.closeFor(sp.hand) : null;
   answered = false;
 
   $("qEv").textContent = sp.event;
@@ -548,7 +701,7 @@ function answer(a){
   const b = $("qa" + a);
   if (b.disabled) return;
   answered = true;
-  const ok = a === sp.answer, st = Q().stats;
+  const ok = a === sp.answer || !!(sp.altOK && sp.altOK.includes(a)), st = Q().stats;
   session.n++; st.n++;
   if (ok){ session.c++; st.c++; st.streak++; st.best = Math.max(st.best, st.streak); }
   else {
@@ -567,7 +720,7 @@ function answer(a){
     const el = $("qa" + x);
     el.disabled = true;
     if (x === sp.answer) el.classList.add("right");
-    else if (x === a) el.classList.add("wrong");
+    else if (x === a) el.classList.add(ok ? "right" : "wrong");
     else el.classList.add("dim");
   });
   renderBB();
